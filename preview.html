@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Video Lab Preview</title>
+<style>
+  :root { --bg:#F6F3EE; --card:#FFFFFF; --ink:#2B2420; --muted:#7A6F66; --line:#E6DFD6; --accent:#FF6B5B; --good:#2E9E5B; --warn:#D98A1E; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:#171513; --card:#221F1C; --ink:#F2EDE7; --muted:#A49A90; --line:#353029; } }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { padding:24px 16px 8px; max-width:1280px; margin:0 auto; }
+  h1 { margin:0 0 4px; font-size:24px; }
+  .sub { color:var(--muted); margin:0 0 14px; }
+  .bar { display:flex; flex-wrap:wrap; gap:8px; }
+  .chip { border:1px solid var(--line); background:var(--card); color:var(--ink); border-radius:999px; padding:6px 14px; cursor:pointer; font:inherit; font-size:14px; }
+  .chip.on { background:var(--accent); border-color:var(--accent); color:#fff; }
+  main { max-width:1280px; margin:0 auto; padding:12px 16px 40px; display:grid; gap:16px; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; overflow:hidden; display:flex; flex-direction:column; }
+  .card.wide { grid-column:span 2; }
+  @media (max-width:600px) { .card.wide { grid-column:auto; } }
+  .vid { background:#000; display:flex; align-items:center; justify-content:center; }
+  video { width:100%; max-height:520px; display:block; background:#000; }
+  .body { padding:10px 12px 14px; display:flex; flex-direction:column; gap:4px; }
+  .top { display:flex; gap:6px; align-items:center; flex-wrap:wrap; font-size:12px; color:var(--muted); }
+  .n { font-weight:700; color:var(--accent); }
+  .tag { border:1px solid var(--line); border-radius:6px; padding:0 6px; }
+  .ok { color:var(--good); border-color:currentColor; }
+  .demo { color:var(--warn); border-color:currentColor; }
+  h2 { margin:2px 0 0; font-size:16px; }
+  p { margin:0; color:var(--muted); font-size:13px; }
+  .missing { color:var(--muted); padding:60px 12px; text-align:center; font-size:13px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Video Lab</h1>
+  <p class="sub">Semua video yang dirender 21–22 Nov. Hover/tap untuk play. File asli di <code>_claude_work/video_skills/out/</code>.</p>
+  <div class="bar" id="bar"></div>
+</header>
+<main id="grid"></main>
+<script>
+const V = [
+  { f: "anak-kedua-blender.mp4", t: "#AnakKedua (3D)", tool: "Blender + Poly Haven + ElevenLabs + Remotion", kind: "ours", note: "Cerita sendiri, narasi Indonesia, caption per kata." },
+  { f: "huashu-art-motion.mp4", t: "Anak Kedua (tipografi)", tool: "huashu-art-motion", kind: "ours", note: "Kinetic type, tanpa suara." },
+  { f: "lemo-opuscar.mp4", t: "Lubang tutup pulpen", tool: "lemo-opuscar", kind: "ours", note: "Gaya papan kapur, tanpa suara." },
+  { f: "opus-video-skills.mp4", t: "Kalo misal semua orang Indonesia lompat bareng?", tool: "opus-video-skills", kind: "ours", note: "Animasi lukisan, tanpa teks." },
+  { f: "onetake.mp4", t: "Mulai dari gerobak", tool: "onetake", kind: "ours", note: "Satu shot tanpa potong." },
+  { f: "explainroo.mp4", t: "Tired, but can't sleep", tool: "explainroo", kind: "ours", note: "Suara Kokoro lokal (English), musik, caption." },
+  { f: "whatif-rewind.mp4", t: "What If: Rewind", tool: "what-if-animation", kind: "demo", note: "Contoh bawaan, lengkap suara + SFX." },
+  { f: "whatif-copypaste.mp4", t: "What If: Copy Paste", tool: "what-if-animation", kind: "demo", note: "Contoh bawaan." },
+  { f: "reelmimic.mp4", t: "Anime cel demo", tool: "reelmimic", kind: "demo", note: "Contoh bawaan, 3 shot." },
+  { f: "riso-windowseat.mp4", t: "Window Seat", tool: "riso-windowseat", kind: "demo", note: "Film risograph bawaan, 14 dtk pertama." },
+  { f: "clawd-demo.mp4", t: "Clawd (cat air)", tool: "ClaudeAnimationBase", kind: "demo", note: "Contoh bawaan; maskot Anthropic, cuma buat lihat gaya." },
+  { f: "motiondesign-3d-toy-character.mp4", t: "Mainan 3D", tool: "motion-design-skills", kind: "demo", note: "Contoh bawaan." },
+  { f: "motiondesign-hand-drawn-cartoon.mp4", t: "Kartun gambar tangan", tool: "motion-design-skills", kind: "demo", note: "Contoh bawaan." },
+  { f: "motiondesign-kinetic-typography.mp4", t: "Tipografi bergerak", tool: "motion-design-skills", kind: "demo", note: "Contoh bawaan." },
+  { f: "motiondesign-system-diagram-animation.mp4", t: "Diagram", tool: "motion-design-skills", kind: "demo", note: "Contoh bawaan." },
+  { f: "motiondesign-data-story-charts.mp4", t: "Grafik data", tool: "motion-design-skills", kind: "demo", note: "Contoh bawaan." },
+];
+const FILTERS = [["all", "Semua"], ["ours", "Buatan kita"], ["demo", "Contoh bawaan"], ["vertical", "Vertikal"], ["wide", "Horizontal"]];
+let filter = "all";
+const grid = document.getElementById("grid"), bar = document.getElementById("bar");
+
+function draw() {
+  grid.innerHTML = "";
+  V.forEach((v, i) => {
+    const card = document.createElement("article");
+    card.className = "card";
+    card.dataset.kind = v.kind;
+    card.innerHTML = `<div class="vid"><video src="out/${v.f}" muted loop playsinline preload="metadata" controls></video></div>
+      <div class="body"><div class="top"><span class="n">${i + 1}</span><span class="tag">${v.tool}</span>
+      <span class="tag ${v.kind === "ours" ? "ok" : "demo"}">${v.kind === "ours" ? "buatan kita" : "contoh bawaan"}</span><span class="dim"></span></div>
+      <h2>${v.t}</h2><p>${v.note}</p></div>`;
+    const video = card.querySelector("video");
+    video.addEventListener("loadedmetadata", () => {
+      const w = video.videoWidth, h = video.videoHeight;
+      card.dataset.shape = w > h ? "wide" : "vertical";
+      if (w > h) card.classList.add("wide");
+      card.querySelector(".dim").textContent = `${w}×${h} · ${video.duration.toFixed(0)} dtk`;
+      apply();
+    });
+    video.addEventListener("error", () => {
+      card.querySelector(".vid").innerHTML = `<div class="missing">Belum ada file (masih render / gagal)</div>`;
+    });
+    card.addEventListener("mouseenter", () => video.play().catch(() => {}));
+    card.addEventListener("mouseleave", () => video.pause());
+    grid.appendChild(card);
+  });
+  apply();
+}
+function apply() {
+  for (const c of grid.children) {
+    const show = filter === "all" || c.dataset.kind === filter || c.dataset.shape === filter;
+    c.style.display = show ? "" : "none";
+  }
+}
+FILTERS.forEach(([k, label]) => {
+  const b = document.createElement("button");
+  b.className = "chip" + (k === filter ? " on" : "");
+  b.textContent = label;
+  b.onclick = () => { filter = k; [...bar.children].forEach(x => x.classList.toggle("on", x === b)); apply(); };
+  bar.appendChild(b);
+});
+draw();
+</script>
+</body>
+</html>
